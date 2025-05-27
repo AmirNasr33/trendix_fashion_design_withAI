@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "build": "npm install && npm install -g nodemon && npm install -g express && npm install -g mongoose && npm install -g multer && npm install -g nodemailer && npm install -g openai && npm install -g bcrypt && npm install -g cloudinary && npm install -g cookie-parser && npm install -g dotenv && npm install -g jsonwebtoken"
+    "build": "npm install "
   },
   "keywords": [],
   "author": "",
