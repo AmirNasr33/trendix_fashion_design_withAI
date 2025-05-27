@@ -24,75 +24,88 @@ app.use(express.json());
 app.use(cookieParser())
 const upload = multer({ dest: path.join(path.resolve(), 'uploads') }); // safer __dirname in ES6
 const apiKey = process.env.OPENAI_API_KEY
-  app.post(
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+app.post(
     '/generate-fashion-image',
-   upload.fields([{ name: 'person' }, { name: 'clothes' }]), // Multer middleware to upload files
-    //convertToBase64, 
+    upload.fields([{ name: 'person' }, { name: 'clothes' }]),
     async (req, res) => {
-        
-        try {
-         
-          const{prompt,person,clothes} = req.body
-       
-            
-            const payload = {
-                key: process.env.API_KEY,
-               
-                "prompt" :prompt,
-                "negative_prompt": "Low quality, unrealistic, bad cloth, warped cloth",
-                "init_image" :person,
-                "cloth_image": clothes,
-                "cloth_type": "upper_body",
-                "guidance_scale": 7.5,
-                "num_inference_steps": 21,
-                "seed": null,
-                "temp": "no",
-                "webhook": null,
-                "track_id": null
-            }
-
-            // Call the external API to generate the fashion image
-            const response = await axios.post(
-                'https://modelslab.com/api/v6/image_editing/fashion',
-                JSON.stringify(payload, null, 2),
-                {
-                    headers: {
-                        'Content-Type': 'application/json'
-                    
-                    }
-                },
-            );
-             
-
-          console.log(response.data)
-            const imageUrl = response.data?.proxy_links?.[0];
-
-            if (!imageUrl) {
-                throw new Error('Image URL not found in API response');
-            }
-            // Helper function to wait for a few seconds
-            const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
-            try {
-                await delay(50000); // انتظر 6 ثوانٍ قبل محاولة رفع الصورة
-            } catch (error) {
-                console.error('Error waiting for 50 seconds:', error);
-            }
-
-            const uploaded = await cloudinary.uploader.upload(imageUrl, {
-                folder: 'fashion',
-            });
-
-            res.json({
-                message: 'Fashion image generated and uploaded successfully.',
-                image_url: uploaded.secure_url
-            });
-
-        } catch (error) {
-            console.error(error.response?.data || error.message || error);
-            res.status(500).json({ error: 'Failed to generate fashion image.' });
+      try {
+        const prompt = req.body.prompt;
+  
+        // Step 1: Get files
+        const personFile = req.files.person?.[0];
+        const clothesFile = req.files.clothes?.[0];
+  
+        if (!personFile || !clothesFile || !prompt) {
+          return res.status(400).json({ error: 'Missing required fields.' });
         }
-    }
-);
+  
+        // Step 2: Construct correct paths with extensions
+        const personPath = personFile.path + '.' + personFile.mimetype.split('/')[1];
+        const clothesPath = clothesFile.path + '.' + clothesFile.mimetype.split('/')[1];
+  
+        // Rename files to include extension
+        fs.renameSync(personFile.path, personPath);
+        fs.renameSync(clothesFile.path, clothesPath);
+  
+        // Step 3: Upload to Cloudinary
+        const [uploadedPerson, uploadedClothes] = await Promise.all([
+          cloudinary.uploader.upload(personPath, { folder: 'fashion' }),
+          cloudinary.uploader.upload(clothesPath, { folder: 'fashion' })
+        ]);
+  
+        const personUrl = uploadedPerson.secure_url;
+        const clothesUrl = uploadedClothes.secure_url;
+  
+        // Step 4: Prepare Payload
+        const payload = {
+          key: process.env.API_KEY,
+          prompt: prompt,
+          negative_prompt: "Low quality, unrealistic, bad cloth, warped cloth",
+          init_image: personUrl,
+          cloth_image: clothesUrl,
+          cloth_type: "upper_body",
+          guidance_scale: 7.5,
+          num_inference_steps: 21,
+          seed: null,
+          temp: "no",
+          webhook: null,
+          track_id: null
+        };
+  
+        // Step 5: Send to external API
+        const response = await axios.post(
+          'https://modelslab.com/api/v6/image_editing/fashion',
+          payload,
+          {
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+  
+        const imageUrl = response.data?.proxy_links?.[0];
+  
+        if (!imageUrl) {
+          throw new Error('Image URL not found in API response');
+        }
+        await delay(30000); // 10 ثواني
+        // Optional: Upload generated image to Cloudinary
+        const uploaded = await cloudinary.uploader.upload(imageUrl, {
+          folder: 'fashion',
+        });
+  
+        res.json({
+          message: 'Fashion image generated and uploaded successfully.',
+          image_url: uploaded.secure_url
+        });
+  
+      } catch (error) {
+        console.error(error.response?.data || error.message || error);
+        res.status(500).json({ error: 'Failed to generate fashion image.' });
+      }
+    }
+  );
 app.post('/chatbot', async (req, res) => {
     const {message} = req.body
     try {
