@@ -89,7 +89,7 @@ app.post(
         if (!imageUrl) {
           throw new Error('Image URL not found in API response');
         }
-        await delay(30000); // 10 ثواني
+        await delay(50000); // 10 ثواني
         // Optional: Upload generated image to Cloudinary
         const uploaded = await cloudinary.uploader.upload(imageUrl, {
           folder: 'fashion',
