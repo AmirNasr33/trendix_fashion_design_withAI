@@ -1,7 +1,6 @@
 import cookieParser from "cookie-parser";
 import { config } from "dotenv";
 import express from "express"
-import cors from 'cors';
 import { db_connection } from "./db_connection.js";
 import { authRouter } from "./Routes/auth.routes.js";
 import errorHandler from "./Middlewares/errorHandler.middleware.js";
@@ -19,11 +18,6 @@ config()
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const app = express();
-app.use(cors({
-  origin: ['http://localhost:3000'],
-  credentials: true
-}));
-
 app.use(express.json());
 app.use(cookieParser())
 const upload = multer({ dest: path.join(path.resolve(), 'uploads') }); // safer __dirname in ES6
